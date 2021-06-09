@@ -2,7 +2,10 @@ import scrapy
 import undetected_chromedriver
 from scrapy import Request
 from urllib import parse
-
+import requests
+import re
+import json
+from ArticleSpider.items import JobboleArticleItem
 
 class JobboleSpider(scrapy.Spider):
     name = 'jobbole'
@@ -39,4 +42,33 @@ class JobboleSpider(scrapy.Spider):
                           callback=self.parse_detai)
 
     def parse_detail(self, response):
-        pass
+        # TODO 改写xpath
+        title = response.css('#news_title a::text').extract_first('')
+        created_date = response.css('#news_info .time::text').extract_first('')
+
+        # content 要提取 HTML
+        content = response.css('#news_content').extract()[0]
+        tag_list = response.css('.news_tags a::text').extract()
+        tags = ','.join(tag_list)
+
+        match_re = re.match('.*(\d+)', response.url)
+        if match_re:
+            # 同步代码
+            post_id = match_re.group(1)
+            # html = requests.get(parse.urljoin(response.url, '/NewsAjax/GetAjaxNewsInfo?contentId={}').format(post_id))
+            # j_data = json.loads(html.text)
+
+            yield Request(url=parse.urljoin(response.url, '/NewsAjax/GetAjaxNewsInfo?contentId={}').format(post_id),
+                          callback=self.parse_nums)
+
+            # praise_num = j_data['DiggCount']
+            # fav_num = j_data['TotalView']
+            # comment_num = j_data['CommentCount']
+
+    def parse_nums(self, response):
+        j_data = json.loads(response.text)
+
+        praise_num = j_data['DiggCount']
+        fav_num = j_data['TotalView']
+        comment_num = j_data['CommentCount']
+
